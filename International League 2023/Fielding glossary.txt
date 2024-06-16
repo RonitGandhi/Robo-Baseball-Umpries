@@ -1,0 +1,22 @@
+Aff -- Affiliation
+Major league franchise(s) that either owns this affiliate or has an agreement with this team.
+G -- Games Played or Pitched
+CG -- Complete Game
+PO -- Putouts
+A -- Assists
+E -- Errors Committed
+DP -- Double Plays Turned
+Fld% -- Fielding Percentage
+(Putouts + Assists) / (Putouts + Assists + Errors)
+PB -- Passed Balls
+SB -- Stolen Bases
+CS -- Caught Stealing
+CS% -- Caught Stealing Percentage
+CS / (SB + CS)
+lgCS% -- League Caught Stealing Percentage
+League Expected CS / Players SB + Players CS
+PO -- Pickoffs
+Runner picked off a base. May include cases they were safe on an error.
+Also includes Pickoff Caught Stealing plays.
+Attendance -- Attendance
+Typically, tickets sold in home games.
