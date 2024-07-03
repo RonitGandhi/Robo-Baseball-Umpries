@@ -9,18 +9,44 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+## CODE TO GET DATA FOR EACH AND EVERY GAME (PER GAME PITCH-BY-PITCH DATA) and SQL insert query (TEST)
 ```{r}
+## CODE TO GET DATA FOR EACH AND EVERY GAME (PER GAME PITCH-BY-PITCH DATA) and SQL insert query (TEST)
 library(baseballr)
 library(dplyr)
+library(DBI)
+library(RMySQL)
+library(data.table)
 
-games <- get_game_pks_mlb(date = '2023-04-01',
-                       level_ids = c(11))
-print(games)
+#DB connection
+#con <- dbConnect(RMySQL::MySQL(), dbname = 'baseball_data', host = 'localhost', port = 3306, user = 'root', password = 'Gandhi_op16', local_infile = 1)
+#message("connection success!")
+
+# Sample game from 2023 season
+payload <- get_pbp_mlb(723719)  
+
+# Converting the tibble into a dataframe
+names(payload) <- gsub("\\.", "_", names(payload))
+
+payload_df <- as.data.frame(payload)
+
+print(payload_df)
+#checking the column names
+colnames(payload_df)
+
+#tryCatch({
+ #   dbWriteTable(con, name = "game_details", value = payload_df, append = TRUE, row.names = FALSE)
+#}, error = function(e) {
+ #   print(e)
+#})
+write.csv(payload_df, "paylaod_df_base_review_inprog.csv", row.names = FALSE)
+
 
 ```
+## CODE TO GET GAMES DATA FOR AAA for any season
 
 ```{r}
+## CODE TO GET GAMES DATA FOR AAA for any season
 library(baseballr)
 library(dplyr)
 
@@ -38,7 +64,7 @@ get_game_data_for_date <- function(date_str, level_id = 11) {
   return(games)
 }
 
-# Define the date range for the 2023 season
+# Define the date range for the season
 start_date <- as.Date("2019-03-01")
 end_date <- as.Date("2019-10-30")
 dates <- seq.Date(start_date, end_date, by = "day")
@@ -67,3 +93,286 @@ print("Game data extraction complete. CSV file saved as 'aaa_games_2019.csv'")
 
 ```
 
+## CODE TO GET PBP DATA FOR ALLGAMES IN THE 2023 SEASON, AND INSERTED IN DATABASE
+```{r}
+## CODE TO GET PBP DATA FOR ALLGAMES IN THE 2023 SEASON, AND INSERTED IN DATABASE
+library(baseballr)
+library(dplyr)
+library(DBI)
+library(RMySQL)
+library(data.table)
+
+# DB connection
+con <- dbConnect(RMySQL::MySQL(), dbname = 'baseball_data', host = 'localhost', port = 3306, user = 'root', password = 'Gandhi_op16', local_infile = 1)
+message("connection success!")
+
+# Load game IDs from CSV
+game_ids <- fread("C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/Data with umpires/aaa_games_2023_with_umpires.csv")$game_pk
+
+# Loop over game IDs and fetch and insert data
+for (game_id in game_ids) {
+    message(paste("Fetching data for game ID:", game_id))
+    tryCatch({
+        payload <- get_pbp_mlb(game_id)
+        
+        names(payload) <- gsub("\\.", "_", names(payload))
+        if("reviewDetails_isOverturned" %in% names(payload)) {
+            names(payload)[names(payload) == "reviewDetails_isOverturned"] <- "reviewDetails_isOverturned_x"
+        }
+        if("reviewDetails_inProgress" %in% names(payload)) {
+            names(payload)[names(payload) == "reviewDetails_inProgress"] <- "reviewDetails_inProgress_x"
+        }
+        if("reviewDetails_challengeTeamId" %in% names(payload)) {
+            names(payload)[names(payload) == "reviewDetails_challengeTeamId"] <- "reviewDetails_challengeTeamId_x"
+        }
+        if("reviewDetails_reviewType" %in% names(payload)) {
+            names(payload)[names(payload) == "reviewDetails_reviewType"] <- "reviewDetails_reviewType_x"
+          }
+        payload_df <- as.data.frame(payload)
+        
+        # Check if the dataframe is not empty and has columns before attempting to write to the database
+        if (ncol(payload_df) > 0 && nrow(payload_df) > 0) {
+            dbWriteTable(con, name = "game_details", value = payload_df, append = TRUE, row.names = FALSE)
+            print(paste("Data inserted for game ID:", game_id))
+        } else {
+            print(paste("No data fetched for game ID:", game_id))
+        }
+    }, error = function(e) {
+        print(paste("Error fetching data for game ID:", game_id, "Error:", e$message))
+    })
+}
+ 
+# Disconnect from DB
+dbDisconnect(con)
+message("Disconnected from database.")
+
+```
+
+## Basic EDA of Pith Data
+pitch_data <- fread("C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv", fill = TRUE, quote = "", check.names = FALSE)
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+
+# Step 1: Load the data
+# Adjust the path to your CSV file
+pitch_data <- fread('C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv', fill = TRUE, quote = "", check.names = FALSE)
+
+# Convert relevant columns to numeric, handling non-numeric values gracefully
+pitch_data <- pitch_data %>%
+  mutate(
+    pitchData_startSpeed = as.numeric(pitchData_startSpeed),
+    pitchData_endSpeed = as.numeric(pitchData_endSpeed),
+    pitchData_zone = as.numeric(pitchData_zone),
+    pitchData_typeConfidence = as.numeric(pitchData_typeConfidence),
+    pitchData_plateTime = as.numeric(pitchData_plateTime),
+    pitchData_extension = as.numeric(pitchData_extension),
+    pitchData_coordinates_aY = as.numeric(pitchData_coordinates_aY),
+    pitchData_coordinates_aZ = as.numeric(pitchData_coordinates_aZ),
+    pitchData_coordinates_pfxX = as.numeric(pitchData_coordinates_pfxX),
+    pitchData_coordinates_pfxZ = as.numeric(pitchData_coordinates_pfxZ),
+    pitchData_coordinates_pX = as.numeric(pitchData_coordinates_pX),
+    pitchData_coordinates_pZ = as.numeric(pitchData_coordinates_pZ),
+    pitchData_coordinates_vX0 = as.numeric(pitchData_coordinates_vX0),
+    pitchData_coordinates_vY0 = as.numeric(pitchData_coordinates_vY0),
+    pitchData_coordinates_vZ0 = as.numeric(pitchData_coordinates_vZ0),
+    pitchData_coordinates_x0 = as.numeric(pitchData_coordinates_x0),
+    pitchData_coordinates_y0 = as.numeric(pitchData_coordinates_y0),
+    pitchData_coordinates_z0 = as.numeric(pitchData_coordinates_z0),
+    pitchData_coordinates_aX = as.numeric(pitchData_coordinates_aX),
+    pitchData_breaks_breakAngle = as.numeric(pitchData_breaks_breakAngle),
+    pitchData_breaks_breakLength = as.numeric(pitchData_breaks_breakLength),
+    pitchData_breaks_breakY = as.numeric(pitchData_breaks_breakY),
+    pitchData_breaks_spinRate = as.numeric(pitchData_breaks_spinRate),
+    pitchData_breaks_spinDirection = as.numeric(pitchData_breaks_spinDirection)
+  )
+
+# Inspect the data to ensure conversion
+print("Data summary after conversion:")
+print(summary(pitch_data))
+print(head(pitch_data))
+# Get the unique game_pk values
+game_ids <- unique(pitch_data$game_pk)
+
+# Set up the plotting area to show multiple plots at a time
+par(mfrow=c(2, 2))  # Adjust as needed
+
+# Step 2: Iterate over each game and create visualizations
+for (game_id in game_ids) {
+  game_data <- pitch_data %>% filter(game_pk == game_id)
+  
+
+  print(game_data)
+  # Plot: Scatter plot of Start Speed vs End Speed
+  plot_scatter <- ggplot(game_data, aes(x = pitchData_startSpeed, y = pitchData_endSpeed)) +
+    geom_point(alpha = 0.5) +
+    theme_minimal() +
+    labs(title = paste("Start Speed vs End Speed for Game", game_id), x = "Start Speed (mph)", y = "End Speed (mph)")
+  
+  print(plot_scatter)
+  
+  # Plot: Histogram of Start Speed
+  plot_hist_start_speed <- ggplot(game_data, aes(x = pitchData_startSpeed)) +
+    geom_histogram(bins = 30, fill = "blue", color = "black") +
+    theme_minimal() +
+    labs(title = paste("Distribution of Start Speed for Game", game_id), x = "Start Speed (mph)", y = "Frequency")
+  
+  print(plot_hist_start_speed)
+  
+  # Plot: Histogram of End Speed
+  plot_hist_end_speed <- ggplot(game_data, aes(x = pitchData_endSpeed)) +
+    geom_histogram(bins = 30, fill = "green", color = "black") +
+    theme_minimal() +
+    labs(title = paste("Distribution of End Speed for Game", game_id), x = "End Speed (mph)", y = "Frequency")
+  
+  print(plot_hist_end_speed)
+  
+  # Plot: Bar plot of Zone
+  plot_bar_zone <- ggplot(game_data, aes(x = factor(pitchData_zone))) +
+    geom_bar(fill = "purple", color = "black") +
+    theme_minimal() +
+    labs(title = paste("Distribution of Zone for Game", game_id), x = "Zone", y = "Count")
+  
+  print(plot_bar_zone)
+  
+  # Additional plots can be added here for other columns as needed
+}
+
+print("Plots have been displayed.")
+
+```
+
+## Batted Balls
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(baseballr)
+
+# Step 1: Load the data
+# Adjust the path to your CSV file
+pitch_data <- fread('C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv', fill = TRUE, quote = "", check.names = FALSE)
+
+# Convert relevant columns to numeric, handling non-numeric values gracefully
+pitch_data <- pitch_data %>%
+  mutate(
+    pitchData_coordinates_x = as.numeric(pitchData_coordinates_x),
+    pitchData_coordinates_y = as.numeric(pitchData_coordinates_y),
+    batted_ball_result = as.factor(batted_ball_result)  # Assuming batted_ball_result is a factor
+  )
+
+# Define the color palette
+bb_palette <- c('Single' = "#006BA4",
+                'Double' = "#A2CEEC", 
+                'Triple'= "#FFBC79", 
+                'Home Run'= "#C85200", 
+                'Out/Other' = "#595959")
+
+# Function to plot spray chart for each game_pk
+plot_spray_chart <- function(game_id, game_data) {
+  ggplot(game_data, aes(x = pitchData_coordinates_x, y = -pitchData_coordinates_y, color = batted_ball_result)) +
+    geom_point(size = 3) +
+    scale_color_manual(values = bb_palette) +
+    labs(title = paste("Batted Balls: Game", game_id),
+         x = "Coordinate X",
+         y = "Coordinate Y",
+         color = "Result") +
+    theme_minimal()
+}
+
+# Get the unique game_pk values
+game_ids <- unique(pitch_data$game_pk)
+
+# Step 2: Iterate over each game and create visualizations
+par(mfrow=c(2, 2))  # Adjust as needed
+print(game_ids)
+for (game_id in game_ids) {
+  game_data <- pitch_data %>% filter(game_pk == game_id)
+  
+  # Plot the spray chart
+  plot_scatter <- plot_spray_chart(game_id, game_data)
+  print(plot_scatter)
+}
+
+print("Plots have been displayed.")
+
+```
+
+## Hit Data
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(baseballr)
+
+# Step 1: Load the data
+# Adjust the path to your CSV file
+pitch_data <- fread('C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv', fill = TRUE, quote = "", check.names = FALSE)
+
+# Convert relevant columns to numeric and factor, handling non-numeric values gracefully
+pitch_data <- pitch_data %>%
+  mutate(
+    hitData_coordinates_coordX = as.numeric(hitData_coordinates_coordX),
+    hitData_coordinates_coordY = as.numeric(hitData_coordinates_coordY),
+    hitData_trajectory = as.factor(hitData_trajectory),
+    hitData_hardness = as.factor(hitData_hardness),
+    hitData_location = as.factor(hitData_location)
+  )
+
+# Inspect the data to ensure conversion
+print("Data summary after conversion:")
+print(summary(pitch_data))
+
+# Check the unique values in hitData_trajectory and hitData_hardness
+unique_trajectories <- unique(pitch_data$hitData_trajectory)
+unique_hardness <- unique(pitch_data$hitData_hardness)
+
+print("Unique values in hitData_trajectory:")
+print(unique_trajectories)
+
+print("Unique values in hitData_hardness:")
+print(unique_hardness)
+
+# Define the color palette for trajectory based on the actual data
+trajectory_colors <- c("#006BA4", "#A2CEEC", "#FFBC79", "#C85200", "#595959", "#7F7F7F", "#B6D7A8", "#76A5AF", "#C27BA0", "#FFD966")
+trajectory_palette <- setNames(trajectory_colors[1:length(unique_trajectories)], unique_trajectories)
+
+# Define the color palette for hardness based on the actual data
+hardness_colors <- c("#006BA4", "#A2CEEC", "#FFBC79", "#C85200", "#595959", "#7F7F7F", "#B6D7A8", "#76A5AF", "#C27BA0", "#FFD966")
+hardness_palette <- setNames(hardness_colors[1:length(unique_hardness)], unique_hardness)
+
+# Function to plot spray chart for each game_pk
+plot_spray_chart <- function(game_id, game_data) {
+  ggplot(game_data, aes(x = hitData_coordinates_coordX, y = -hitData_coordinates_coordY, color = hitData_trajectory, shape = hitData_hardness)) +
+    geom_point(size = 3) +
+    scale_color_manual(values = trajectory_palette, na.translate = FALSE) +
+    scale_shape_manual(values = 1:length(unique_hardness), na.translate = FALSE) +  # Different shapes for hardness levels
+    labs(title = paste("Batted Balls: Game", game_id),
+         x = "Coordinate X",
+         y = "Coordinate Y",
+         color = "Trajectory",
+         shape = "Hardness") +
+    theme_minimal()
+}
+
+# Get the unique game_pk values
+game_ids <- unique(pitch_data$game_pk)
+
+# Step 2: Iterate over each game and create visualizations
+par(mfrow=c(2, 2))  # Adjust as needed
+
+for (game_id in game_ids) {
+  game_data <- pitch_data %>% filter(game_pk == game_id)
+  
+  # Remove rows with NA values
+  game_data <- game_data %>% drop_na(hitData_coordinates_coordX, hitData_coordinates_coordY, hitData_trajectory, hitData_hardness)
+  
+  # Plot the spray chart
+  plot_scatter <- plot_spray_chart(game_id, game_data)
+  print(plot_scatter)
+}
+
+print("Plots have been displayed.")
+
+```
