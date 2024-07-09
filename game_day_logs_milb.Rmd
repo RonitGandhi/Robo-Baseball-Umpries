@@ -376,3 +376,265 @@ for (game_id in game_ids) {
 print("Plots have been displayed.")
 
 ```
+
+## Robot Umpires Split
+C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv
+```{r}
+# Load necessary libraries
+library(data.table)  # For fread and data manipulation
+
+# Load the data with fill=TRUE to handle rows with varying field numbers
+file_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data.csv'  # Adjust the path as necessary
+pitch_data <- fread(file_path, fill = TRUE)
+
+# Check for any obvious issues with the data right after loading
+print("Data overview:")
+str(pitch_data)
+
+# Assuming there's a 'game_date' column, we need to convert it to the correct date format
+# This step may need adjustment based on your actual date format
+pitch_data[, game_date := as.Date(game_date, format = "%Y-%m-%d")]
+
+# Extract the day of the week from the game_date
+pitch_data[, day_of_week := weekdays(game_date)]
+
+# Classify games by umpire type based on the day of the week
+pitch_data[, umpire_type := ifelse(day_of_week %in% c("Tuesday", "Wednesday", "Thursday"),
+                                 "Robot Umpire", "Human Umpire")]
+
+# Output the first few rows to check the new column
+print("Modified data preview:")
+print(pitch_data)
+
+# Optionally, save the modified data to a new CSV file
+output_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data RobotSplit.csv'
+fwrite(pitch_data, output_path)
+
+print(paste("Modified data saved to", output_path))
+
+```
+
+## Do Pitchers pitch faster
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+
+# Load the modified data
+file_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data RobotSplit.csv' # Adjust the path as necessary
+pitch_data <- fread(file_path, fill = TRUE)
+
+# Convert pitch speed to numeric, ensuring no data issues interfere
+pitch_data[, pitchData_startSpeed := as.numeric(pitchData_startSpeed)]
+
+# Filter out any rows with NA in the relevant columns
+pitch_data <- na.omit(pitch_data, cols = c("umpire_type", "pitchData_startSpeed"))
+
+# Calculate summary statistics by umpire type
+summary_stats <- pitch_data[, .(
+  Average_Speed = mean(pitchData_startSpeed, na.rm = TRUE),
+  Median_Speed = median(pitchData_startSpeed, na.rm = TRUE),
+  SD_Speed = sd(pitchData_startSpeed, na.rm = TRUE)
+), by = umpire_type]
+
+print(summary_stats)
+
+# Visualization: Boxplot of pitch speeds by umpire type
+ggplot(pitch_data, aes(x = umpire_type, y = pitchData_startSpeed, fill = umpire_type)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Pitch Speeds by Umpire Type",
+       x = "Umpire Type",
+       y = "Pitch Speed (mph)") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# Visualization: Density Plot of Pitch Speeds by Umpire Type
+ggplot(pitch_data, aes(x = pitchData_startSpeed, fill = umpire_type)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Pitch Speeds by Umpire Type",
+       x = "Pitch Speed (mph)",
+       y = "Density") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+```
+
+## Do Pitchers spin the ball more
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+
+# Load the modified data
+file_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data RobotSplit.csv'  # Adjust the path as necessary
+pitch_data <- fread(file_path, fill = TRUE)
+
+# Ensure numeric conversion for analysis
+pitch_data[, pitchData_breaks_spinRate := as.numeric(pitchData_breaks_spinRate)]
+pitch_data[, pitchData_breaks_spinDirection := as.numeric(pitchData_breaks_spinDirection)]
+
+# Remove any rows with NA in the relevant columns
+pitch_data <- na.omit(pitch_data, cols = c("umpire_type", "pitchData_breaks_spinRate", "pitchData_breaks_spinDirection"))
+
+# Calculate summary statistics by umpire type for spin rate
+spin_rate_stats <- pitch_data[, .(
+  Average_SpinRate = mean(pitchData_breaks_spinRate, na.rm = TRUE),
+  SD_SpinRate = sd(pitchData_breaks_spinRate, na.rm = TRUE)
+), by = umpire_type]
+
+# Calculate summary statistics by umpire type for spin direction
+spin_direction_stats <- pitch_data[, .(
+  Average_SpinDirection = mean(pitchData_breaks_spinDirection, na.rm = TRUE),
+  SD_SpinDirection = sd(pitchData_breaks_spinDirection, na.rm = TRUE)
+), by = umpire_type]
+
+# Output the statistics
+print("Spin Rate Statistics by Umpire Type:")
+print(spin_rate_stats)
+
+print("Spin Direction Statistics by Umpire Type:")
+print(spin_direction_stats)
+
+# Visualization: Comparing Spin Rate by Umpire Type
+ggplot(pitch_data, aes(x = umpire_type, y = pitchData_breaks_spinRate, fill = umpire_type)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Pitch Spin Rates by Umpire Type",
+       x = "Umpire Type",
+       y = "Spin Rate (rpm)") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# Visualization: Comparing Spin Direction by Umpire Type
+ggplot(pitch_data, aes(x = umpire_type, y = pitchData_breaks_spinDirection, fill = umpire_type)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Pitch Spin Directions by Umpire Type",
+       x = "Umpire Type",
+       y = "Spin Direction (degrees)") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+```
+
+## Hitting data analysis, do they hit harder or where do they hit?
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+
+# Load the modified data
+file_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data RobotSplit.csv'  # Adjust the path as necessary
+pitch_data <- fread(file_path, fill = TRUE)
+
+# Ensure numeric conversion for analysis
+pitch_data[, hitData_launchSpeed := as.numeric(hitData_launchSpeed)]
+pitch_data[, hitData_launchAngle := as.numeric(hitData_launchAngle)]
+pitch_data[, hitData_totalDistance := as.numeric(hitData_totalDistance)]
+pitch_data[, hitData_coordinates_coordX := as.numeric(hitData_coordinates_coordX)]
+pitch_data[, hitData_coordinates_coordY := as.numeric(hitData_coordinates_coordY)]
+
+# Remove any rows with NA in the relevant columns
+pitch_data <- na.omit(pitch_data, cols = c("umpire_type", "hitData_launchSpeed", "hitData_launchAngle", "hitData_totalDistance", "hitData_coordinates_coordX", "hitData_coordinates_coordY"))
+
+# Calculate summary statistics by umpire type for hitting data
+hitting_stats <- pitch_data[, .(
+  Avg_LaunchSpeed = mean(hitData_launchSpeed, na.rm = TRUE),
+  Avg_LaunchAngle = mean(hitData_launchAngle, na.rm = TRUE),
+  Avg_TotalDistance = mean(hitData_totalDistance, na.rm = TRUE),
+  Avg_CoordX = mean(hitData_coordinates_coordX, na.rm = TRUE),
+  Avg_CoordY = mean(hitData_coordinates_coordY, na.rm = TRUE)
+), by = umpire_type]
+
+print("Hitting statistics by umpire type:")
+print(hitting_stats)
+
+# Visualization: Comparing Launch Speed by Umpire Type
+ggplot(pitch_data, aes(x = umpire_type, y = hitData_launchSpeed, fill = umpire_type)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Launch Speed by Umpire Type",
+       x = "Umpire Type",
+       y = "Launch Speed (mph)") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# Visualization: Density Plot of Launch Angle by Umpire Type
+ggplot(pitch_data, aes(x = hitData_launchAngle, fill = umpire_type)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Launch Angles by Umpire Type",
+       x = "Launch Angle (degrees)",
+       y = "Density") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+ggplot(pitch_data, aes(x = hitData_totalDistance, fill = umpire_type)) +
+  geom_histogram(bins = 30, alpha = 0.6) +
+  labs(title = "Histogram of Total Hit Distances by Umpire Type",
+       x = "Total Distance (feet)", y = "Frequency") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# Visualization 2: Scatter Plot of Launch Speed vs. Launch Angle
+ggplot(pitch_data, aes(x = hitData_launchSpeed, y = hitData_launchAngle, color = umpire_type)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Scatter Plot of Launch Speed vs. Launch Angle by Umpire Type",
+       x = "Launch Speed (mph)", y = "Launch Angle (degrees)") +
+  scale_color_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# Visualization 3: Hexbin Plot of Coordinates where Hits Landed
+ggplot(pitch_data, aes(x = hitData_coordinates_coordX, y = hitData_coordinates_coordY, fill = umpire_type)) +
+  geom_hex() +
+  labs(title = "Hexbin Plot of Hit Landing Coordinates by Umpire Type",
+       x = "Coordinate X", y = "Coordinate Y") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal()
+
+# More plots can be added for other metrics like Total Distance
+
+```
+
+## Different Pitch Types
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+
+# Load the data
+file_path <- 'C:/Users/ronit/Desktop/RUTGERS/Jerry Kim - Summer project/Robot Umpires/Data/2023 pbp data RobotSplit.csv'  # Adjust the path as necessary
+pitch_data <- fread(file_path, fill = TRUE)
+
+# Ensure proper data type conversion for categorical analysis
+pitch_data[, details_type_description := as.factor(details_type_description)]
+
+# Remove any rows with NA values in key columns for clean plotting
+pitch_data <- na.omit(pitch_data, cols = c("umpire_type", "details_type_description"))
+
+# Calculate frequency of pitch types by umpire type
+pitch_type_counts <- pitch_data[, .N, by = .(umpire_type, details_type_description)]
+pitch_type_counts[, percentage := N / sum(N), by = umpire_type]
+
+# Visualization: Bar Plot of Pitch Types by Umpire Type
+ggplot(pitch_type_counts, aes(x = details_type_description, y = percentage, fill = umpire_type)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Distribution of Pitch Types by Umpire Type",
+       x = "Pitch Type", y = "Percentage") +
+  scale_fill_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Adjust text for better visibility
+
+# Optional: Advanced visualization with speed or spin rate
+# For this, ensure you have numeric conversions for speed/spin rate as shown in previous examples
+ggplot(pitch_data, aes(x = details_type_description, y = pitchData_startSpeed, color = umpire_type)) +
+  geom_boxplot() +
+  labs(title = "Pitch Speed Distribution by Pitch Type and Umpire Type",
+       x = "Pitch Type", y = "Pitch Speed (mph)") +
+  scale_color_manual(values = c("Robot Umpire" = "blue", "Human Umpire" = "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
